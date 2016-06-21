@@ -2,6 +2,7 @@ package notification.nevermore.io.volley;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.support.v4.util.LruCache;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -28,9 +29,9 @@ public class MusicAdapter extends BaseAdapter<Music> {
     public MusicAdapter(Context context, List<Music> data) {
         super(context, data);
         queue = Volley.newRequestQueue(context);
-        imageLoader =new ImageLoader(queue, new MyImageCache());
+        imageLoader =new ImageLoader(queue, new LruImageCache());
     }
-
+//    用SoftReference不可控，当图片数量太多时，有可能出现OOM，这是早期的处理方式，现在推荐使用LruImageCache
     class MyImageCache implements ImageLoader.ImageCache{
         private Map<String,SoftReference<Bitmap>> cache = new HashMap<>();
         @Override
@@ -46,6 +47,31 @@ public class MusicAdapter extends BaseAdapter<Music> {
         @Override
         public void putBitmap(String url, Bitmap bitmap) {
             cache.put(url,new SoftReference<Bitmap>(bitmap));
+        }
+    }
+//    LruImageCache
+
+    class LruImageCache implements ImageLoader.ImageCache{
+        private LruCache<String,Bitmap>cache;
+
+        public LruImageCache(){
+            int maxSize = 10*1024*1024;
+            cache = new LruCache<String,Bitmap>(maxSize){
+                protected int sizeOf(String key, Bitmap bitmap){
+                    return  bitmap.getRowBytes()*bitmap.getHeight();
+                }
+            };
+
+        }
+
+        @Override
+        public Bitmap getBitmap(String url) {
+            return cache.get(url);
+        }
+
+        @Override
+        public void putBitmap(String url, Bitmap bitmap) {
+            cache.put(url,bitmap);
         }
     }
 
